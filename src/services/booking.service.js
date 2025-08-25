@@ -1,17 +1,17 @@
 import { findListingById } from '../repositories/listing.repository.js';
 import { createBooking, findBookingsByGuest,findBookingById, hasOverlap } from '../repositories/booking.repository.js';
 import { StatusCodes } from 'http-status-codes';
+import { invalidateCache } from '../middlewares/cacheMiddleware.js';
 
 function nightsBetween(checkIn, checkOut) {
   const ms = new Date(checkOut) - new Date(checkIn);
   return Math.ceil(ms / (1000*60*60*24));
 }
 
-export async function createBookingForGuest(guestId, { listingId, checkIn, checkOut, guestsCount=1 }) {
+export async function bookListing({ listingId, guestId, checkIn, checkOut, guestsCount }) {
   const listing = await findListingById(listingId);
   if (!listing || !listing.isActive) { const e = new Error('Listing not found'); e.status = 404; throw e; }
 
-  // Prevent host from booking their own listing
   if (listing.host.toString() === guestId) {
     const e = new Error('Hosts cannot book their own listings.');
     e.status = 403;
@@ -30,6 +30,7 @@ export async function createBookingForGuest(guestId, { listingId, checkIn, check
   const totalPrice = nights * listing.pricePerNight;
 
   const booking = await createBooking({ listing: listing.id, guest: guestId, checkIn: start, checkOut: end, guestsCount, totalPrice, status: 'confirmed' });
+  await invalidateCache('booking:');
   return booking.toJSON();
 }
 
@@ -52,8 +53,7 @@ function computeRefund(checkIn, totalPrice, now = new Date()) {
   if (days >= 3) return Math.round(totalPrice * 0.5); 
   return 0;                                   
 }
-
-export async function cancelMyBooking(guestId, bookingId, { reason } = {}) {
+export async function cancelBooking(bookingId, guestId, reason) {
   const booking = await findBookingById(bookingId);
   if (!booking) { const e = new Error('Booking not found'); e.status = 404; throw e; }
   if (booking.guest.toString() !== guestId) { const e = new Error('Forbidden'); e.status = 403; throw e; }
@@ -66,6 +66,8 @@ export async function cancelMyBooking(guestId, bookingId, { reason } = {}) {
   booking.cancelReason = reason;
   booking.refundAmount = refund;
   await booking.save();
+  await invalidateCache('booking:');
 
   return booking.toJSON();
 }
+

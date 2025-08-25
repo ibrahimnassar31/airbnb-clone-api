@@ -1,35 +1,35 @@
-import {LRUCache} from 'lru-cache';
-
-const cache = new LRUCache({
-  max: 500,
-  ttl: 60 * 1000, // 60s
-});
+import redisClient from '../utils/redisClient.js';
 
 export function cacheMiddleware({ ttlSec = 60, keyFn } = {}) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (req.method !== 'GET') return next();
 
-    const key = keyFn ? keyFn(req) : req.originalUrl;
-    const cached = cache.get(key);
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.status(cached.status).set(cached.headers).send(cached.body);
-    }
+    // Use clear cache key prefixes
+    const prefix = req.baseUrl.includes('listings') ? 'listing:'
+      : req.baseUrl.includes('reviews') ? 'review:'
+      : req.baseUrl.includes('bookings') ? 'booking:'
+      : 'api:';
+    const key = keyFn ? keyFn(req) : `${prefix}${req.originalUrl}`;
+    try {
+      const cached = await redisClient.get(key);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        res.setHeader('X-Cache', 'HIT');
+        return res.status(parsed.status).set(parsed.headers).send(parsed.body);
+      }
+    } catch {}
 
     const originalSend = res.send.bind(res);
-    res.send = (body) => {
+    res.send = async (body) => {
       try {
-        cache.set(
-          key,
-          {
-            status: res.statusCode,
-            headers: { 'Content-Type': res.get('Content-Type') ?? 'application/json' },
-            body,
-          },
-          { ttl: ttlSec * 1000 },
-        );
+        const value = JSON.stringify({
+          status: res.statusCode,
+          headers: { 'Content-Type': res.get('Content-Type') ?? 'application/json' },
+          body,
+        });
+        await redisClient.setEx(key, ttlSec, value);
         res.setHeader('X-Cache', 'MISS');
-      } catch { /* ignore */ }
+      } catch {}
       return originalSend(body);
     };
 
@@ -37,4 +37,9 @@ export function cacheMiddleware({ ttlSec = 60, keyFn } = {}) {
   };
 }
 
-export default cacheMiddleware;
+export async function invalidateCache(prefix = 'api:') {
+  const keys = await redisClient.keys(`${prefix}*`);
+  for (const key of keys) {
+    await redisClient.del(key);
+  }
+}

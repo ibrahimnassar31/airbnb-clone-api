@@ -7,7 +7,11 @@ import { localStorage } from '../utils/uploads/storage/local.js';
 import { StatusCodes } from 'http-status-codes';
 
 const IMAGE_TYPES = ['image/jpeg','image/png','image/webp','image/avif'];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = uploadsConfig.maxSize || 5 * 1024 * 1024; // 5MB default
+
+function sanitizeFilename(name) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
 
 function fileFilter(_req, file, cb) {
   if (!IMAGE_TYPES.includes(file.mimetype)) return cb(new Error('Unsupported file type'));
@@ -28,11 +32,29 @@ export function photosUpload(field = 'photos', maxCount = 10) {
     limits: { fileSize: MAX_SIZE, files: maxCount },
   }).array(field, maxCount);
 
-  return (req, res, next) => {
-    upload(req, res, (err) => {
+  return async (req, res, next) => {
+    upload(req, res, async (err) => {
       if (err) {
         const e = new Error(err.message || 'Upload error'); e.status = StatusCodes.BAD_REQUEST;
         return next(e);
+      }
+      if (req.files && req.files.length) {
+        for (const file of req.files) {
+          file.originalname = sanitizeFilename(file.originalname);
+          if (file.buffer) {
+            try {
+              const processed = await sharp(file.buffer)
+                .toFormat('jpeg')
+                .jpeg({ quality: 90 })
+                .withMetadata({ exif: false })
+                .toBuffer();
+              file.buffer = processed;
+            } catch (ex) {
+              const e = new Error('Image processing failed'); e.status = StatusCodes.BAD_REQUEST;
+              return next(e);
+            }
+          }
+        }
       }
       next();
     });

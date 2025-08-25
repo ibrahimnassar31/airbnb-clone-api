@@ -1,17 +1,17 @@
 import * as svc from '../services/listing.service.js';
 
 export async function createListingCtrl(req, res) {
-  const data = await svc.createListingForHost(req.user.id, req.body);
+  const data = await svc.createNewListing(req.body, req.user.id);
   res.status(201).json(data);
 }
 
 export async function updateListingCtrl(req, res) {
-  const data = await svc.updateListingByOwner(req.user.id, req.params.id, req.body);
+  const data = await svc.updateExistingListing(req.params.id, req.user.id, req.body);
   res.json(data);
 }
 
 export async function deleteListingCtrl(req, res) {
-  const out = await svc.deleteListingByOwner(req.user.id, req.params.id);
+  const out = await svc.removeListing(req.params.id, req.user.id);
   res.json(out);
 }
 

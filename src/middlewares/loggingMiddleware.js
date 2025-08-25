@@ -16,8 +16,14 @@ export function morganMiddleware() {
 }
 
 export function attachLogger() {
-  return (req, _res, next) => {
+  return (req, res, next) => {
     req.log = logger.child({ requestId: req.id });
+    req.requestId = req.headers['x-request-id'] || (typeof generateRequestId === 'function' ? generateRequestId() : undefined);
+    const start = Date.now();
+    res.on('finish', () => {
+      req.latency = Date.now() - start;
+    });
+    req.userId = req.user?.id;
     next();
   };
 }

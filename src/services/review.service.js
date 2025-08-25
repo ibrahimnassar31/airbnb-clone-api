@@ -4,8 +4,9 @@ import Review from '../models/review.model.js';
 import Listing from '../models/listing.model.js';
 import mongoose from 'mongoose';
 import logger from '../utils/logger.js';
+import { invalidateCache } from '../middlewares/cacheMiddleware.js';
 
-export async function createReviewForBooking(guestId, { bookingId, rating, comment }) {
+export async function createReviewForBooking(guestId, bookingId, rating, comment) {
   logger.info('Attempting to create review for booking', { guestId, bookingId, rating, comment });
 
   const booking = await findBookingById(bookingId);
@@ -30,6 +31,7 @@ export async function createReviewForBooking(guestId, { bookingId, rating, comme
   });
 
   await updateListingStats(listing._id);
+  await invalidateCache('review:');
 
   logger.info('Review created successfully', { review });
   return review.toJSON();
@@ -48,11 +50,12 @@ async function updateListingStats(listingId) {
   ).exec();
 }
 
-export async function deleteReviewForBooking(guestId, bookingId) {
+export async function deleteReviewByAuthor(bookingId, guestId) {
   logger.info('Attempting to delete review for booking', { guestId, bookingId });
   const deleted = await Review.findOneAndDelete({ booking: bookingId, author: guestId });
   if (!deleted) { const e = new Error('Review not found for this booking and user'); e.status = 404; throw e; }
   await updateListingStats(deleted.listing);
+  await invalidateCache('review:');
   logger.info('Review deleted successfully', { guestId, bookingId });
   return { deleted: true };
 }

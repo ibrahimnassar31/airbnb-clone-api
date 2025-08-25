@@ -1,0 +1,444 @@
+openapi: 3.1.0
+info:
+  title: Airbnb Clone API
+  version: 1.0.0
+  description: REST API documentation for Airbnb Clone
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/auth/login:
+    post:
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/listings:
+    get:
+      summary: List all listings
+      parameters:
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: minPrice
+          schema:
+            type: number
+        - in: query
+          name: maxPrice
+          schema:
+            type: number
+        - in: query
+          name: guests
+          schema:
+            type: integer
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingListResponse'
+    post:
+      summary: Create a new listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingCreateRequest'
+      responses:
+        '201':
+          description: Listing created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+  /api/listings/{id}:
+    get:
+      summary: Get a listing by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listing details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+    patch:
+      summary: Update a listing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingUpdateRequest'
+      responses:
+        '200':
+          description: Listing updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+    delete:
+      summary: Delete a listing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listing deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+  /api/bookings:
+    post:
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreateRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+  /api/bookings/me:
+    get:
+      summary: List my bookings
+      responses:
+        '200':
+          description: List of my bookings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingListResponse'
+  /api/bookings/{id}/cancel:
+    post:
+      summary: Cancel my booking
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+  /api/reviews/booking:
+    post:
+      summary: Create review for booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateForBookingRequest'
+      responses:
+        '201':
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+  /api/reviews/booking/{bookingId}:
+    delete:
+      summary: Delete review for booking
+      parameters:
+        - in: path
+          name: bookingId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+    ListingCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: object
+          properties:
+            country:
+              type: string
+            city:
+              type: string
+            street:
+              type: string
+        coordinates:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+        pricePerNight:
+          type: number
+        maxGuests:
+          type: integer
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        amenities:
+          type: array
+          items:
+            type: string
+        photos:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+    ListingUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ListingCreateRequest'
+    ListingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        host:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: object
+        coordinates:
+          type: object
+        pricePerNight:
+          type: number
+        maxGuests:
+          type: integer
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        amenities:
+          type: array
+          items:
+            type: string
+        photos:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        averageRating:
+          type: number
+        reviewCount:
+          type: integer
+    ListingListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    BookingCreateRequest:
+      type: object
+      properties:
+        listingId:
+          type: string
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+        guestsCount:
+          type: integer
+    BookingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        listing:
+          type: string
+        guest:
+          type: string
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+        guestsCount:
+          type: integer
+        totalPrice:
+          type: number
+        status:
+          type: string
+    BookingListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    ReviewCreateForBookingRequest:
+      type: object
+      properties:
+        bookingId:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+    ReviewResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        booking:
+          type: string
+        listing:
+          type: string
+        host:
+          type: string
+        author:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

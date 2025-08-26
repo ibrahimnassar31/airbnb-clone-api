@@ -7,7 +7,7 @@ import { localStorage } from '../utils/uploads/storage/local.js';
 import { StatusCodes } from 'http-status-codes';
 
 const IMAGE_TYPES = ['image/jpeg','image/png','image/webp','image/avif'];
-const MAX_SIZE = uploadsConfig.maxSize || 5 * 1024 * 1024; // 5MB default
+const MAX_SIZE = uploadsConfig.maxSize || 5 * 1024 * 1024; 
 
 function sanitizeFilename(name) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -41,6 +41,14 @@ export function photosUpload(field = 'photos', maxCount = 10) {
       if (req.files && req.files.length) {
         for (const file of req.files) {
           file.originalname = sanitizeFilename(file.originalname);
+          file.fieldname = sanitizeFilename(file.fieldname);
+          if (file.filename) file.filename = sanitizeFilename(file.filename);
+          if (file.path) file.path = sanitizeFilename(file.path);
+          if (file.metadata && typeof file.metadata === 'object') {
+            for (const k in file.metadata) {
+              if (typeof file.metadata[k] === 'string') file.metadata[k] = sanitizeFilename(file.metadata[k]);
+            }
+          }
           if (file.buffer) {
             try {
               const processed = await sharp(file.buffer)

@@ -30,6 +30,16 @@ export const env = {
     .split(',')
     .map(s => s.trim()),
 
+  csp: {
+    defaultSrc: get('CSP_DEFAULT_SRC', "'self'").split(',').map(s => s.trim()),
+    scriptSrc: get('CSP_SCRIPT_SRC', "'self',https://cdn.example.com").split(',').map(s => s.trim()),
+    imgSrc: get('CSP_IMG_SRC', "'self',https://cdn.example.com,https://uploads.example.com,data:").split(',').map(s => s.trim()),
+    styleSrc: get('CSP_STYLE_SRC', "'self',https://cdn.example.com").split(',').map(s => s.trim()),
+    connectSrc: get('CSP_CONNECT_SRC', "'self',https://api.example.com").split(',').map(s => s.trim()),
+    objectSrc: get('CSP_OBJECT_SRC', "'none'").split(',').map(s => s.trim()),
+    upgradeInsecureRequests: get('CSP_UPGRADE_INSECURE', '').split(',').map(s => s.trim()).filter(Boolean),
+  },
+
   logDir: get('LOG_DIR', 'logs'),
   
   appOrigin: get('APP_ORIGIN', `http://localhost:${get('PORT', '3000')}`),

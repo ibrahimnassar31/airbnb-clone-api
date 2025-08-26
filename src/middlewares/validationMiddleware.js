@@ -1,10 +1,21 @@
-import { StatusCodes } from 'http-status-codes';
 
+import { StatusCodes } from 'http-status-codes';
+import xss from 'xss';
 export function validate(schema, property = 'body') {
   return (req, _res, next) => {
     try {
-      const result = schema.parse(req[property]);
-      req[property] = result; // parsed & coerced
+      let input = req[property];
+      const sanitize = (obj) => {
+        if (typeof obj === 'string') return xss(obj);
+        if (Array.isArray(obj)) return obj.map(sanitize);
+        if (obj && typeof obj === 'object') {
+          for (const k in obj) obj[k] = sanitize(obj[k]);
+        }
+        return obj;
+      };
+      input = sanitize(input);
+      const result = schema.parse(input);
+      req[property] = result; 
       next();
     } catch (e) {
       const issues = e.errors?.map(er => ({ path: er.path?.join('.'), message: er.message })) ?? [];

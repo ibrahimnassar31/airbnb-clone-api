@@ -20,27 +20,25 @@ import { sanitizeBody } from './utils/validation.js';
 
 const app = express();
 
+
 app.use(helmet());
 app.use(helmet.contentSecurityPolicy({
   directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", 'https://cdn.example.com'],
-    imgSrc: ["'self'", 'https://cdn.example.com', 'https://uploads.example.com', 'data:'],
-    styleSrc: ["'self'", 'https://cdn.example.com'],
-    connectSrc: ["'self'", 'https://api.example.com'],
-    objectSrc: ["'none'"],
-    upgradeInsecureRequests: [],
+    defaultSrc: env.csp.defaultSrc,
+    scriptSrc: env.csp.scriptSrc,
+    imgSrc: env.csp.imgSrc,
+    styleSrc: env.csp.styleSrc,
+    connectSrc: env.csp.connectSrc,
+    objectSrc: env.csp.objectSrc,
+    upgradeInsecureRequests: env.csp.upgradeInsecureRequests,
   },
 }));
 
-const allowedOrigins = ['http://localhost:3000'];
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (env.corsOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
@@ -50,15 +48,7 @@ const spec = YAML.parse(readFileSync(path.join(__dirname, '../docs/openapi.yaml'
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(spec, { explorer: true }));
 
-app.use((req, res, next) => {
-  res.cookie = ((name, value, options = {}) => {
-    options.httpOnly = true;
-    options.secure = process.env.NODE_ENV === 'production';
-    options.sameSite = 'lax';
-    res.append('Set-Cookie', `${name}=${encodeURIComponent(value)}; HttpOnly;${options.secure ? ' Secure;' : ''} SameSite=Lax`);
-  });
-  next();
-});
+
 
 app.set('trust proxy', 1);
 
@@ -66,16 +56,7 @@ app.use(requestIdMiddleware());
 app.use(attachLogger());
 app.use(morganMiddleware());
 
-app.use(helmet());
 
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);                
-    if (env.corsOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));

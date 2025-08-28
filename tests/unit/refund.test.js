@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from '@jest/globals';
 
 function computeRefund(checkIn, totalPrice, now = new Date()) {
   const ms = new Date(checkIn) - now;

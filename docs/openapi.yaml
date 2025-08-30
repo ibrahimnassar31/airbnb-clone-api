@@ -47,6 +47,30 @@ paths:
           schema:
             type: string
         - in: query
+          name: near
+          description: "lat,lng pair for geo search"
+          schema:
+            type: string
+            example: "37.7749,-122.4194"
+        - in: query
+          name: radiusKm
+          description: "Radius in kilometers for geo search"
+          schema:
+            type: number
+            minimum: 0.1
+            maximum: 200
+        - in: query
+          name: bbox
+          description: "Bounding box: minLat,minLng;maxLat,maxLng"
+          schema:
+            type: string
+            example: "37.7,-122.5;37.8,-122.3"
+        - in: query
+          name: polygon
+          description: "Polygon: lat,lng|lat,lng|... (closed automatically)"
+          schema:
+            type: string
+        - in: query
           name: minPrice
           schema:
             type: number
@@ -73,6 +97,15 @@ paths:
       responses:
         '200':
           description: List of listings
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong entity tag for conditional requests
+            Cache-Control:
+              schema:
+                type: string
+              description: Caching policy (may include stale-while-revalidate)
           content:
             application/json:
               schema:
@@ -101,9 +134,17 @@ paths:
           required: true
           schema:
             type: string
+            pattern: "^[a-fA-F0-9]{24}$"
       responses:
         '200':
           description: Listing details
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
           content:
             application/json:
               schema:

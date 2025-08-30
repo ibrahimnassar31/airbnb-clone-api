@@ -2,7 +2,14 @@ import Listing from '../models/listing.model.js';
 
 export async function createListing(data) { return Listing.create(data); }
 export async function findListingById(id) { return Listing.findById(id); }
-export async function updateListing(id, data) { return Listing.findByIdAndUpdate(id, data, { new: true }); }
+export async function updateListing(id, data) {
+  const update = { ...data };
+  const coords = data?.coordinates;
+  if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+    update.location = { type: 'Point', coordinates: [coords.lng, coords.lat] };
+  }
+  return Listing.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+}
 export async function deleteListing(id) { return Listing.findByIdAndDelete(id); }
 
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -14,6 +21,7 @@ export async function searchListings(rawParams = {}) {
     minPrice, maxPrice, guests, bedrooms, bathrooms,
     q, caseSensitive = false,
     sort = 'newest', page = 1, limit = 20,
+    near, radiusKm, bbox, polygon,
   } = rawParams;
 
   const MAX_LIMIT = 100;
@@ -52,21 +60,11 @@ export async function searchListings(rawParams = {}) {
   }
 
   let projection = undefined;
-  if (isNonEmpty(q)) {
-    if (!caseSensitive) {
-      filter.$text = { $search: String(q) };
-      projection = { score: { $meta: 'textScore' } };
-    } else {
-      const rxQ = caseSensitive ? new RegExp(escapeRegex(String(q))) : new RegExp(escapeRegex(String(q)), 'i');
-      filter.$or = [
-        { title: rxQ },
-        { description: rxQ },
-        { 'address.city': rxQ },
-        { 'address.country': rxQ },
-        { 'address.street': rxQ },
-        { amenities: rxQ },
-      ];
-    }
+  const textSearch = isNonEmpty(q) ? String(q) : undefined;
+  if (textSearch && !caseSensitive) {
+    // text index based search
+    filter.$text = { $search: textSearch };
+    projection = { score: { $meta: 'textScore' } };
   }
 
   const sortMap = {
@@ -77,6 +75,85 @@ export async function searchListings(rawParams = {}) {
   };
   let sortStage = sortMap[sort] || { createdAt: -1 };
   if (filter.$text) sortStage = { score: { $meta: 'textScore' }, ...sortStage };
+
+  const hasNear = isNonEmpty(near) && isNonEmpty(radiusKm);
+  const hasBbox = isNonEmpty(bbox);
+  const hasPolygon = isNonEmpty(polygon);
+
+  if (hasNear) {
+    const [latStr, lngStr] = String(near).split(',');
+    const lat = Number(latStr), lng = Number(lngStr);
+    const maxDistance = Number(radiusKm) * 1000;
+
+    const pipeline = [
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [lng, lat] },
+          distanceField: 'distanceMeters',
+          spherical: true,
+          maxDistance,
+          key: 'location',
+          query: { ...filter },
+        }
+      },
+    ];
+
+    if (textSearch && caseSensitive) {
+      const rxQ = new RegExp(escapeRegex(textSearch));
+      pipeline.push({ $match: { $or: [
+        { title: rxQ },
+        { description: rxQ },
+        { 'address.city': rxQ },
+        { 'address.country': rxQ },
+        { 'address.street': rxQ },
+        { amenities: rxQ },
+      ] } });
+    } else if (textSearch && filter.$text) {
+      pipeline.push({ $match: { $text: { $search: textSearch } } });
+    }
+
+    pipeline.push({ $sort: sortStage });
+    pipeline.push({ $skip: (pageNum - 1) * limitNum }, { $limit: limitNum });
+
+    const items = await Listing.aggregate(pipeline);
+    const countPipeline = pipeline.filter((s) => !('$skip' in s) && !('$limit' in s) && !('$sort' in s)).concat([{ $count: 'cnt' }]);
+    const countRes = await Listing.aggregate(countPipeline);
+    const total = countRes[0]?.cnt || 0;
+    return { items, total, page: pageNum, limit: limitNum, sort };
+  }
+
+  if (hasBbox || hasPolygon) {
+    let coords = [];
+    if (hasBbox) {
+      const [p1, p2] = String(bbox).split(';');
+      const [minLat, minLng] = p1.split(',').map(Number);
+      const [maxLat, maxLng] = p2.split(',').map(Number);
+      coords = [
+        [minLng, minLat],
+        [maxLng, minLat],
+        [maxLng, maxLat],
+        [minLng, maxLat],
+        [minLng, minLat],
+      ];
+    } else {
+      const pts = String(polygon).split('|').map((p) => p.split(',').map(Number));
+      coords = pts.map(([lat, lng]) => [lng, lat]);
+      if (coords.length >= 3) coords.push(coords[0]);
+    }
+    filter.location = { $geoWithin: { $geometry: { type: 'Polygon', coordinates: [coords] } } };
+  }
+
+  if (textSearch && caseSensitive) {
+    const rxQ = new RegExp(escapeRegex(textSearch));
+    filter.$or = [
+      { title: rxQ },
+      { description: rxQ },
+      { 'address.city': rxQ },
+      { 'address.country': rxQ },
+      { 'address.street': rxQ },
+      { amenities: rxQ },
+    ];
+  }
 
   const baseQuery = Listing.find(filter, projection);
   const total = await Listing.countDocuments(filter);

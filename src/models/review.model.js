@@ -10,7 +10,6 @@ const reviewSchema = new mongoose.Schema({
   comment: { type: String, maxlength: 1000 },
 }, { timestamps: true });
 
-// Only one review per (Booking × User)
 reviewSchema.index({ booking: 1, author: 1 }, { unique: true });
 
 reviewSchema.set('toJSON', {

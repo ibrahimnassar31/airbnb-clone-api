@@ -3,6 +3,8 @@ import app from './app.js';
 import { env } from './config/env.js';
 import connectDB from './config/db.js';
 import logger from './utils/logger.js';
+import mongoose from 'mongoose';
+import redisClient from './utils/redisClient.js';
 
 let server;
 
@@ -21,26 +23,45 @@ async function start() {
 
 start();
 
-function shutdown(reason, code = 0) {
+async function shutdown(reason, code = 0) {
   logger.warn(`Shutting down: ${reason}`);
-  if (server) {
-    server.close(() => {
+  try {
+    if (server) {
+      await new Promise((resolve) => server.close(() => resolve()));
       logger.info('HTTP server closed');
-      process.exit(code);
-    });
-    setTimeout(() => process.exit(code), 10_000).unref();
-  } else {
-    process.exit(code);
+    }
+  } catch (e) {
+    logger.error('Error closing HTTP server', { err: e });
   }
+
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close(false);
+      logger.info('MongoDB connection closed');
+    }
+  } catch (e) {
+    logger.error('Error closing MongoDB connection', { err: e });
+  }
+
+  try {
+    if (typeof redisClient.quit === 'function') {
+      await redisClient.quit();
+      logger.info('Redis client closed');
+    }
+  } catch (e) {
+    logger.error('Error closing Redis client', { err: e });
+  }
+
+  setTimeout(() => process.exit(code), 500).unref();
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('unhandledRejection', (err) => {
   logger.error('Unhandled Rejection', { err });
-  shutdown('unhandledRejection', 1);
+  void shutdown('unhandledRejection', 1);
 });
 process.on('uncaughtException', (err) => {
   logger.error('Uncaught Exception', { err });
-  shutdown('uncaughtException', 1);
+  void shutdown('uncaughtException', 1);
 });

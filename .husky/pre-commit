@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔎 Running lint:fix and format..."
+npm run lint:fix
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "❌ Lint failed"
+  exit $rc
+fi
+
+npm run format
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "❌ Format failed"
+  exit $rc
+fi
+
+echo "✅ Pre-commit checks passed"
+

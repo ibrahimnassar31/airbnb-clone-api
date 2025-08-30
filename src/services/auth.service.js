@@ -11,7 +11,7 @@ import {
 import crypto from 'node:crypto';
 import { sendMail, buildLink } from '../utils/mailer.js';
 import User from '../models/user.model.js';
-import { StatusCodes } from 'http-status-codes';
+import ApiError from '../utils/ApiError.js';
 
 function publicUser(user) {
   return { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt, updatedAt: user.updatedAt };
@@ -19,11 +19,7 @@ function publicUser(user) {
 
 export async function register({ email, password, name }, res) {
   const exists = await findByEmail(email, { includeSecrets: false });
-  if (exists) {
-    const err = new Error('Email already registered');
-    err.status = 409;
-    throw err;
-  }
+  if (exists) throw ApiError.conflict('Email already registered');
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await createUser({ email, passwordHash, name });
@@ -40,13 +36,9 @@ export async function register({ email, password, name }, res) {
 
 export async function login({ email, password }, res) {
   const user = await findByEmail(email, { includeSecrets: true });
-  if (!user) {
-    const err = new Error('Invalid credentials'); err.status = 401; throw err;
-  }
+  if (!user) throw ApiError.unauthorized('Invalid credentials');
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) {
-    const err = new Error('Invalid credentials'); err.status = 401; throw err;
-  }
+  if (!ok) throw ApiError.unauthorized('Invalid credentials');
 
   const safe = user.toJSON(); 
   const at = signAccessToken(safe);
@@ -61,26 +53,22 @@ export async function login({ email, password }, res) {
 
 export async function refresh(req, res) {
   const token = req.cookies?.rt;
-  if (!token) {
-    const err = new Error('No refresh token'); err.status = 401; throw err;
-  }
+  if (!token) throw ApiError.unauthorized('No refresh token');
 
   let payload;
   try {
     payload = verifyRefresh(token);
   } catch {
-    const err = new Error('Invalid refresh token'); err.status = 401; throw err;
+    throw ApiError.unauthorized('Invalid refresh token');
   }
 
   const user = await findById(payload.sub, { includeSecrets: true });
-  if (!user?.refreshTokenHash) {
-    const err = new Error('Refresh token not recognized'); err.status = 401; throw err;
-  }
+  if (!user?.refreshTokenHash) throw ApiError.unauthorized('Refresh token not recognized');
 
   const match = await bcrypt.compare(token, user.refreshTokenHash);
   if (!match) {
     await clearRefreshTokenHash(user.id);
-    const err = new Error('Refresh token mismatch'); err.status = 401; throw err;
+    throw ApiError.unauthorized('Refresh token mismatch');
   }
 
   const safe = user.toJSON();
@@ -109,7 +97,7 @@ function randomToken() {
 
 export async function requestEmailVerification(userId) {
   const user = await User.findById(userId).select('+verifyEmailTokenHash +verifyEmailTokenExpires');
-  if (!user) { const e = new Error('User not found'); e.status = 404; throw e; }
+  if (!user) throw ApiError.notFound('User not found');
   if (user.isVerified) return { alreadyVerified: true };
 
   const token = randomToken();
@@ -131,15 +119,11 @@ export async function requestEmailVerification(userId) {
 
 export async function confirmEmailVerification({ uid, token }) {
   const user = await User.findById(uid).select('+verifyEmailTokenHash +verifyEmailTokenExpires');
-  if (!user) { const e = new Error('User not found'); e.status = 404; throw e; }
-  if (!user.verifyEmailTokenHash || !user.verifyEmailTokenExpires) {
-    const e = new Error('No verification pending'); e.status = 400; throw e;
-  }
-  if (user.verifyEmailTokenExpires < new Date()) {
-    const e = new Error('Verification token expired'); e.status = 400; throw e;
-  }
+  if (!user) throw ApiError.notFound('User not found');
+  if (!user.verifyEmailTokenHash || !user.verifyEmailTokenExpires) throw ApiError.badRequest('No verification pending');
+  if (user.verifyEmailTokenExpires < new Date()) throw ApiError.badRequest('Verification token expired');
   const ok = await bcrypt.compare(token, user.verifyEmailTokenHash);
-  if (!ok) { const e = new Error('Invalid verification token'); e.status = 400; throw e; }
+  if (!ok) throw ApiError.badRequest('Invalid verification token');
 
   user.isVerified = true;
   user.verifyEmailTokenHash = undefined;
@@ -171,15 +155,11 @@ export async function requestPasswordReset(email) {
 
 export async function confirmPasswordReset({ uid, token, password }) {
   const user = await User.findById(uid).select('+resetPasswordTokenHash +resetPasswordTokenExpires +passwordHash');
-  if (!user) { const e = new Error('User not found'); e.status = 404; throw e; }
-  if (!user.resetPasswordTokenHash || !user.resetPasswordTokenExpires) {
-    const e = new Error('No reset pending'); e.status = StatusCodes.BAD_REQUEST; throw e;
-  }
-  if (user.resetPasswordTokenExpires < new Date()) {
-    const e = new Error('Reset token expired'); e.status = StatusCodes.BAD_REQUEST; throw e;
-  }
+  if (!user) throw ApiError.notFound('User not found');
+  if (!user.resetPasswordTokenHash || !user.resetPasswordTokenExpires) throw ApiError.badRequest('No reset pending');
+  if (user.resetPasswordTokenExpires < new Date()) throw ApiError.badRequest('Reset token expired');
   const ok = await bcrypt.compare(token, user.resetPasswordTokenHash);
-  if (!ok) { const e = new Error('Invalid reset token'); e.status = StatusCodes.BAD_REQUEST; throw e; }
+  if (!ok) throw ApiError.badRequest('Invalid reset token');
 
   user.passwordHash = await bcrypt.hash(password, 10);
   user.resetPasswordTokenHash = undefined;

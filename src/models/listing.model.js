@@ -6,10 +6,9 @@ const listingSchema = new mongoose.Schema({
   description: { type: String, trim: true },
   address: { country: String, city: String, street: String },
   coordinates: { lat: { type: Number, index: true }, lng: { type: Number, index: true } },
-  // GeoJSON
   location: {
-    type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], index: '2dsphere', default: undefined } // [lng, lat]
+    type: { type: String, enum: ['Point'] },
+    coordinates: { type: [Number], default: undefined } 
   },
   pricePerNight: { type: Number, required: true, min: 0 },
   maxGuests: { type: Number, default: 1, min: 1 },
@@ -23,10 +22,20 @@ const listingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 listingSchema.index({ title: 'text', description: 'text', 'address.city': 'text', 'address.country': 'text' });
+listingSchema.index({ location: '2dsphere' });
+listingSchema.index({ isActive: 1, createdAt: -1 });
+listingSchema.index({ isActive: 1, pricePerNight: 1 });
+listingSchema.index({ isActive: 1, averageRating: -1, reviewCount: -1 });
+listingSchema.index({ 'address.city': 1, isActive: 1 });
+// Compound index optimized for city + price filters on active listings
+listingSchema.index({ isActive: 1, 'address.city': 1, pricePerNight: 1 });
 
 listingSchema.pre('save', function(next) {
-  if (!this.location && this.coordinates?.lat != null && this.coordinates?.lng != null) {
+  const hasCoords = this.coordinates?.lat != null && this.coordinates?.lng != null;
+  if (hasCoords) {
     this.location = { type: 'Point', coordinates: [this.coordinates.lng, this.coordinates.lat] };
+  } else {
+    this.location = undefined;
   }
   next();
 });

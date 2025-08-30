@@ -12,16 +12,14 @@ const userSchema = new mongoose.Schema(
     avatarUrl: String,
     isVerified: { type: Boolean, default: false },
 
-    // توكنات التحقق/إعادة التعيين (مشفّرة Hash + صلاحية)
     verifyEmailTokenHash: { type: String, select: false },
     verifyEmailTokenExpires: { type: Date, select: false },
     resetPasswordTokenHash: { type: String, select: false },
     resetPasswordTokenExpires: { type: Date, select: false },
   },
-  { timestamps: true, strict: 'throw' } // ← مهم
+  { timestamps: true, strict: 'throw' } 
 );
 
-// مخرجات JSON نظيفة
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
     ret.id = ret._id.toString();

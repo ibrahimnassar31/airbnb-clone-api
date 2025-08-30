@@ -18,7 +18,8 @@ export function validate(schema, property = 'body') {
       req[property] = result; 
       next();
     } catch (e) {
-      const issues = e.errors?.map(er => ({ path: er.path?.join('.'), message: er.message })) ?? [];
+      const errs = e?.issues ?? e?.errors ?? [];
+      const issues = Array.isArray(errs) ? errs.map(er => ({ path: Array.isArray(er.path) ? er.path.join('.') : String(er.path ?? ''), message: er.message })) : [];
       const err = new Error('Validation failed');
       err.status = StatusCodes.UNPROCESSABLE_ENTITY;
       err.details = issues;

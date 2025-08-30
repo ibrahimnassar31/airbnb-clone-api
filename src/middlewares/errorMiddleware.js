@@ -9,7 +9,10 @@ export function notFound(_req, res, _next) {
 export function errorHandler(err, req, res, _next) {
   let apiErr = err instanceof ApiError ? err : null;
   if (!apiErr) {
-    if (err.name === 'ValidationError' || err.name === 'ZodError') apiErr = ApiError.unprocessable('Validation failed', err.errors);
+    if (typeof err.status === 'number' && err.status >= 400 && err.status <= 599) {
+      apiErr = new ApiError(err.message || 'Error', err.status, err.details);
+    }
+    else if (err.name === 'ValidationError' || err.name === 'ZodError') apiErr = ApiError.unprocessable('Validation failed', err.errors ?? err.issues ?? err.details);
     else if (err.name === 'CastError') apiErr = ApiError.badRequest('Invalid parameter');
     else if (err.name === 'MongoError' && err.code === 11000) apiErr = ApiError.conflict('Duplicate key error');
     else apiErr = ApiError.internal(err.message || getReasonPhrase(StatusCodes.INTERNAL_SERVER_ERROR));

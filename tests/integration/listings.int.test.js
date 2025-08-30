@@ -1,5 +1,5 @@
 
-import { describe, it, beforeAll, afterAll, expect } from '@jest/globals';
+import { describe, it, beforeAll, afterAll, expect } from 'vitest';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';

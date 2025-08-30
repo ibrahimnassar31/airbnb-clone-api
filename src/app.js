@@ -2,6 +2,7 @@ import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
@@ -16,25 +17,30 @@ import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { requestIdMiddleware, morganMiddleware, attachLogger } from './middlewares/loggingMiddleware.js';
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
-import { sanitizeBody } from './utils/validation.js';
 
 const app = express();
 
 
 app.use(helmet());
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: env.csp.defaultSrc,
-    scriptSrc: env.csp.scriptSrc,
-    imgSrc: env.csp.imgSrc,
-    styleSrc: env.csp.styleSrc,
-    connectSrc: env.csp.connectSrc,
-    objectSrc: env.csp.objectSrc,
-    upgradeInsecureRequests: env.csp.upgradeInsecureRequests,
-  },
-}));
+app.use(compression());
+if (env.nodeEnv !== 'test') {
+  app.use(helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: env.csp.defaultSrc,
+      scriptSrc: env.csp.scriptSrc,
+      imgSrc: env.csp.imgSrc,
+      styleSrc: env.csp.styleSrc,
+      connectSrc: env.csp.connectSrc,
+      objectSrc: env.csp.objectSrc,
+      upgradeInsecureRequests: env.csp.upgradeInsecureRequests ? [] : null,
+    },
+  }));
+}
 
-app.use(cors({
+app.use(cors(env.corsAllowAll ? {
+  origin: true,
+  credentials: true,
+} : {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (env.corsOrigins.includes(origin)) return cb(null, true);
@@ -64,7 +70,12 @@ app.use(cookieParser());
 
 app.use(mongoSanitize());
 app.use(hpp());
-app.use(sanitizeBody());
+
+const rateLimitJsonHandler = (_req, res, _next, options) => {
+  const status = options?.statusCode ?? 429;
+  const msg = typeof options?.message === 'string' ? options.message : 'Too many requests';
+  res.status(status).json({ message: msg });
+};
 
 const windowMs = env.rateLimit.windowMin * 60 * 1000;
 app.use(rateLimit({
@@ -72,6 +83,7 @@ app.use(rateLimit({
   max: env.rateLimit.max,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: rateLimitJsonHandler,
 }));
 
 app.use('/', routes);

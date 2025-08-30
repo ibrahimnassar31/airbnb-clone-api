@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import { loginLimiter, passwordResetLimiter } from '../middlewares/rateLimitMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
 import {
   registerSchema, loginSchema,
@@ -14,8 +14,7 @@ import {
 } from '../controllers/auth.controller.js';
 
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many login attempts, please try again later.' });
-const passwordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: 'Too many password reset attempts, please try again later.' });
+const passwordLimiter = passwordResetLimiter;
 
 const router = Router();
 

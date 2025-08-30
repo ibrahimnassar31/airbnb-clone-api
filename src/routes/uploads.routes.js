@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import { presignUploadLimiter } from '../middlewares/rateLimitMiddleware.js';
 import { requireAuth } from '../middlewares/authMiddleware.js';
 import { requireRole } from '../middlewares/roleMiddleware.js';
 import { photosUpload } from '../middlewares/uploadMiddleware.js';
 
 
-const uploadsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, message: 'Too many uploads, please try again later.' });
+const uploadsLimiter = presignUploadLimiter;
 const router = Router();
 
 router.post('/photos', uploadsLimiter, requireAuth, requireRole('host','admin'), photosUpload('photos', 10), (req, res) => {

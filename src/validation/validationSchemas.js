@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const objectId = () => z.string().regex(/^[a-fA-F0-9]{24}$/);
+
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
@@ -8,10 +10,10 @@ export const registerSchema = z.object({
 
 export const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 });
 
-export const verifyEmailRequestSchema = z.object({}); // لا مدخلات، مجرد استدعاء
+export const verifyEmailRequestSchema = z.object({}); 
 export const verifyEmailConfirmSchema = z.object({
   uid: z.string().min(1),
   token: z.string().min(1),
@@ -67,6 +69,8 @@ export const listingQuerySchema = z.object({
   polygon: z.string().regex(/^([-+]?\d+(\.\d+)?\,[-+]?\d+(\.\d+)?)(\|[-+]?\d+(\.\d+)?\,[-+]?\d+(\.\d+)?){2,}$/).optional(),
 });
 
+export const listingIdParamSchema = z.object({ id: objectId() });
+
 
 export const bookingCreateSchema = z.object({
   listingId: z.string().min(1),
@@ -86,5 +90,12 @@ export const reviewCreateForBookingSchema = z.object({
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(1000).optional(),
 });
+
+export const reviewDeleteForBookingParams = z.object({
+  bookingId: objectId(),
+});
+
+export const bookingCancelParams = z.object({ id: objectId() });
+export const bookingCancelBody = z.object({ reason: z.string().max(1000).optional() });
 
 

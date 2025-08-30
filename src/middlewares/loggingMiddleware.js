@@ -11,14 +11,14 @@ const mFormat = ':id :method :url :status :res[content-length] - :response-time 
 
 export function morganMiddleware() {
   return morgan(mFormat, {
-    stream: { write: (msg) => logger.http(msg.trim()) },
+    stream: { write: (msg) => logger.info(msg.trim()) },
   });
 }
 
 export function attachLogger() {
   return (req, res, next) => {
     req.log = logger.child({ requestId: req.id });
-    req.requestId = req.headers['x-request-id'] || (typeof generateRequestId === 'function' ? generateRequestId() : undefined);
+    req.requestId = req.id;
     const start = Date.now();
     res.on('finish', () => {
       req.latency = Date.now() - start;

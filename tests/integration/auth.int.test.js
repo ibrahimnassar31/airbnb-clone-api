@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../../src/app.js';
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 describe('Auth API', () => {
   it('should rate limit login attempts', async () => {

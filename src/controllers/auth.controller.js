@@ -1,12 +1,5 @@
 import * as authService from '../services/auth.service.js';
 import { env } from '../config/env.js';
-
-import {
-  requestEmailVerification,
-  confirmEmailVerification,
-  requestPasswordReset,
-  confirmPasswordReset,
-} from '../services/auth.service.js';
 export async function registerCtrl(req, res) {
   const result = await authService.register(req.body, res);
   return res.status(201).json(result);
@@ -28,13 +21,13 @@ export async function logoutCtrl(req, res) {
 }
 
 export async function verifyEmailRequestCtrl(req, res) {
-  const out = await requestEmailVerification(req.user.id);
+  const out = await authService.requestEmailVerification(req.user.id);
   res.json(out);
 }
 
 export async function verifyEmailConfirmCtrl(req, res) {
   const { uid, token } = { uid: req.query.uid || req.body.uid, token: req.query.token || req.body.token };
-  const out = await confirmEmailVerification({ uid, token });
+  const out = await authService.confirmEmailVerification({ uid, token });
 
   const wantsHtml = req.accepts('html') || req.query.redirect === '1';
   if (wantsHtml && process.env.FRONTEND_ORIGIN) {
@@ -46,13 +39,13 @@ export async function verifyEmailConfirmCtrl(req, res) {
 
 export async function passwordResetRequestCtrl(req, res) {
   const { email } = req.body;
-  const out = await requestPasswordReset(email);
+  const out = await authService.requestPasswordReset(email);
   res.json(out);
 }
 
 export async function passwordResetConfirmCtrl(req, res) {
   const { uid, token, password } = req.body;
-  const out = await confirmPasswordReset({ uid, token, password });
+  const out = await authService.confirmPasswordReset({ uid, token, password });
   res.json(out);
 }
 

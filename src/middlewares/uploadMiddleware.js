@@ -40,10 +40,8 @@ export function photosUpload(field = 'photos', maxCount = 10) {
       }
       if (req.files && req.files.length) {
         for (const file of req.files) {
-          file.originalname = sanitizeFilename(file.originalname);
-          file.fieldname = sanitizeFilename(file.fieldname);
-          if (file.filename) file.filename = sanitizeFilename(file.filename);
-          if (file.path) file.path = sanitizeFilename(file.path);
+          if (typeof file.originalname === 'string') file.originalname = sanitizeFilename(file.originalname);
+          if (typeof file.fieldname === 'string') file.fieldname = sanitizeFilename(file.fieldname);
           if (file.metadata && typeof file.metadata === 'object') {
             for (const k in file.metadata) {
               if (typeof file.metadata[k] === 'string') file.metadata[k] = sanitizeFilename(file.metadata[k]);
@@ -57,6 +55,8 @@ export function photosUpload(field = 'photos', maxCount = 10) {
                 .withMetadata({ exif: false })
                 .toBuffer();
               file.buffer = processed;
+              // Ensure mimetype reflects the transformed content
+              file.mimetype = 'image/jpeg';
             } catch (ex) {
               const e = new Error('Image processing failed'); e.status = StatusCodes.BAD_REQUEST;
               return next(e);

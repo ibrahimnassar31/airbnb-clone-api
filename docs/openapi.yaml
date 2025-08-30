@@ -312,6 +312,8 @@ components:
           type: string
     ListingCreateRequest:
       type: object
+      required:
+        - photos
       properties:
         title:
           type: string
@@ -347,8 +349,10 @@ components:
             type: string
         photos:
           type: array
+          minItems: 1
           items:
             type: string
+            description: URL or path to image
         isActive:
           type: boolean
     ListingUpdateRequest:

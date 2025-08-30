@@ -15,7 +15,16 @@ const listingSchema = new mongoose.Schema({
   bedrooms: { type: Number, default: 1, min: 0 },
   bathrooms: { type: Number, default: 1, min: 0 },
   amenities: [{ type: String }],
-  photos: [{ type: String }],
+  photos: {
+    type: [String],
+    required: true,
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length >= 1 && v.every(s => typeof s === 'string' && s.trim().length > 0);
+      },
+      message: 'At least one photo is required',
+    },
+  },
   isActive: { type: Boolean, default: true },
   averageRating: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0, min: 0 },

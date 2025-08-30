@@ -47,7 +47,8 @@ export const listingCreateSchema = z.object({
   bedrooms: z.number().int().min(0).default(1),
   bathrooms: z.number().int().min(0).default(1),
   amenities: z.array(z.string()).default([]),
-  photos: z.array(z.string().url()).default([]),
+  // Require at least one non-empty photo reference (URL or path)
+  photos: z.array(z.string().min(1, 'Photo path/URL cannot be empty')).min(1, 'At least one photo is required'),
   isActive: z.boolean().optional(),
 });
 

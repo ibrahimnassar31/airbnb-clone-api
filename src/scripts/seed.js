@@ -25,7 +25,7 @@ async function run() {
     pricePerNight: 40,
     maxGuests: 3,
     amenities: ['wifi','parking'],
-    photos: [],
+    photos: ['https://picsum.photos/id/1018/800/600'],
     isActive: true,
   });
 

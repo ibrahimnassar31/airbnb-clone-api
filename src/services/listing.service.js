@@ -4,6 +4,9 @@ import ApiError from '../utils/ApiError.js';
 import { toListingDTO } from '../transformers/listing.dto.js';
 
 export async function createNewListing(data, hostId) {
+  if (!Array.isArray(data?.photos) || data.photos.length < 1) {
+    throw ApiError.unprocessable('At least one photo is required');
+  }
   const createdListing = await createListing({ ...data, host: hostId });
   await invalidateCache('listing:');
   return createdListing.toJSON();
@@ -13,6 +16,11 @@ export async function updateExistingListing(listingId, userId, patch) {
   const foundListing = await findListingById(listingId);
   if (!foundListing) throw ApiError.notFound('Listing not found');
   if (foundListing.host.toString() !== userId) throw ApiError.forbidden('Forbidden');
+  if (Object.prototype.hasOwnProperty.call(patch, 'photos')) {
+    if (!Array.isArray(patch.photos) || patch.photos.length < 1) {
+      throw ApiError.unprocessable('At least one photo is required');
+    }
+  }
   const updated = await updateListing(listingId, patch);
   await invalidateCache('listing:');
   return updated?.toJSON();
